@@ -49,6 +49,14 @@ var roomIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 // /{room}).
 var reservedRoomIDs = map[string]bool{"static": true, "ws": true, "r": true, "healthz": true}
 
+// ReserveRoomIDs adds top-level paths that must not be used as rooms (for
+// example localized landing pages such as /en). Call it before serving.
+func ReserveRoomIDs(ids ...string) {
+	for _, id := range ids {
+		reservedRoomIDs[id] = true
+	}
+}
+
 // ValidRoomID reports whether id can be used as a room identifier.
 func ValidRoomID(id string) bool { return roomIDPattern.MatchString(id) && !reservedRoomIDs[id] }
 

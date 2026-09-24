@@ -145,7 +145,7 @@ func serve(args []string) error {
 	if err != nil {
 		return err
 	}
-	pages, err := newSite(static, *siteURL, *trustProxy)
+	pages, err := newSite(static, web.Templates, *siteURL, *trustProxy)
 	if err != nil {
 		return err
 	}

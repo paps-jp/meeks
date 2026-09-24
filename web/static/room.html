@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -15,11 +15,11 @@
     <a href="/" class="logo small">Meeks</a>
     <div class="room-info">
       <span id="room-title"></span>
-      <span id="status" class="badge">接続中…</span>
+      <span id="status" class="badge" data-i18n="room.status.connecting"></span>
     </div>
     <div class="actions">
-      <button id="copy-url" title="招待URLをコピー">URLをコピー</button>
-      <button id="call" class="primary">ビデオ通話</button>
+      <button id="copy-url" data-i18n="room.copyUrl" data-i18n-title="room.copyUrlTitle"></button>
+      <button id="call" class="primary" data-i18n="room.call"></button>
     </div>
   </header>
 
@@ -27,23 +27,25 @@
 
   <div class="layout">
     <aside class="sidebar">
-      <h3>参加者</h3>
+      <h3 data-i18n="room.members"></h3>
       <ul id="members"></ul>
-      <h3>安全確認コード</h3>
-      <p class="hint">全員の表示が同じなら同じ鍵で暗号化されています。</p>
+      <h3 data-i18n="room.safetyCode"></h3>
+      <p class="hint" data-i18n="room.safetyHint"></p>
       <p id="fingerprint" class="fingerprint"></p>
-      <h3>過去ログ</h3>
-      <p class="hint">参加者同士で自動的に同期されます。</p>
-      <button id="clear-history" class="danger">この端末のログを削除</button>
+      <h3 data-i18n="room.history"></h3>
+      <p class="hint" data-i18n="room.historyHint"></p>
+      <button id="clear-history" class="danger" data-i18n="room.clearHistory"></button>
+      <h3><label for="lang-select" data-i18n="room.language"></label></h3>
+      <select id="lang-select"></select>
       <footer class="sidebar-footer"><small>(C) PAPS</small></footer>
     </aside>
 
     <main class="chat">
       <section id="videos" class="videos" hidden>
         <div class="video-tools">
-          <button id="toggle-mic">マイク: オン</button>
-          <button id="toggle-cam">カメラ: オン</button>
-          <button id="hangup" class="danger">通話終了</button>
+          <button id="toggle-mic"></button>
+          <button id="toggle-cam"></button>
+          <button id="hangup" class="danger" data-i18n="room.hangup"></button>
         </div>
         <div id="video-grid" class="video-grid"></div>
       </section>
@@ -52,26 +54,26 @@
 
       <section id="join-banner" class="join-banner" hidden>
         <p id="join-text"></p>
-        <p id="join-code-line" class="hint">あなたの確認コード <b id="join-code"></b>（承認する人の画面にも同じコードが表示されます）</p>
+        <p id="join-code-line" class="hint"><span data-i18n="room.joinCodeLabel"></span> <b id="join-code" dir="ltr"></b> <span data-i18n="room.joinCodeNote"></span></p>
       </section>
 
       <ol id="messages" class="messages"></ol>
 
       <form id="composer" class="composer">
-        <label id="file-btn" class="file-btn" title="ファイルを送信">
+        <label id="file-btn" class="file-btn" data-i18n-title="room.sendFile">
           📎<input type="file" id="file" multiple hidden>
         </label>
-        <textarea id="text" rows="1" maxlength="10000" placeholder="メッセージ（Enterで送信 / Shift+Enterで改行）"></textarea>
-        <button id="send" class="primary">送信</button>
+        <textarea id="text" rows="1" maxlength="10000"></textarea>
+        <button id="send" class="primary" data-i18n="room.send"></button>
       </form>
     </main>
   </div>
 
   <dialog id="name-dialog">
     <form method="dialog">
-      <h2>表示名</h2>
+      <h2 data-i18n="room.nameTitle"></h2>
       <input id="name-input" maxlength="32" required autocomplete="nickname">
-      <button class="primary">入室</button>
+      <button class="primary" data-i18n="room.enter"></button>
     </form>
   </dialog>
 </body>

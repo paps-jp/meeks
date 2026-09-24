@@ -14,6 +14,7 @@
 // Every application payload is additionally sealed with the room key, so it
 // is end-to-end encrypted whichever transport carries it.
 
+import { t, pickLang, loadLang, applyI18n, rememberLang, LANGS } from "./i18n.js";
 import { importRoomKey, newRawKey, newECDH, newInboxKey, importInboxKey, sharedKey, confirmCode, seal, open, b64u, fromB64u, randomId } from "./crypto.js";
 
 const $ = (id) => document.getElementById(id);
@@ -210,11 +211,11 @@ async function onClaimResult(m) {
     // Someone registered this room a moment before us: ask to join instead.
     creating = false;
     forgetKey();
-    notice("同じ名前のルームが先に作成されました。参加を申し込みます。");
+    notice(t("room.notice.nameTaken"));
     await requestJoin();
     return;
   }
-  if (creating) notice("ルームを作成しました。URLを共有して招待してください。");
+  if (creating) notice(t("room.notice.created"));
   creating = false;
   claimed = true;
   for (const id of roomPeers) announce(id);
@@ -280,7 +281,7 @@ async function onJoinStatus(m) {
   }
   await useKey(fromB64u(header.k), header.inbox);
   wsSend({ type: "join-done", data: { id: req.id } });
-  notice(`${String(header.by || "参加者").slice(0, 32)} さんが参加を承認しました`);
+  notice(t("room.notice.approvedBy", { name: String(header.by || t("room.participant")).slice(0, 32) }));
   claim(false);
 }
 
@@ -296,10 +297,10 @@ async function enableApplicantChat(inboxPub) {
 function showJoinBanner(state) {
   const text = {
     pending: applicant
-      ? "参加を申し込んでいます。参加者が承認するとルームに入れます。承認前でも、参加者へメッセージを送れます。"
-      : "参加を申し込んでいます。参加者が承認するとルームに入れます。",
-    rejected: "参加は承認されませんでした。しばらくしてから、もう一度お試しください。",
-    error: "参加を申し込めませんでした。時間をおいて、このページを開き直してください。",
+      ? t("room.join.pendingChat")
+      : t("room.join.pending"),
+    rejected: t("room.join.rejected"),
+    error: t("room.join.error"),
   }[state];
   $("join-text").textContent = text;
   $("join-code-line").hidden = state !== "pending";
@@ -366,13 +367,13 @@ async function renderRequests(list) {
 
 async function requestCard(req, shared) {
   const code = await confirmCode(fromB64u(req.pub));
-  const approve = el("button", { class: "primary", textContent: "承認" });
-  const reject = el("button", { textContent: "拒否" });
-  const input = el("input", { placeholder: `${req.name} さんに返信`, maxLength: JOIN_TEXT_MAX });
-  const reply = el("form", { class: "row request-reply" }, input, el("button", { textContent: "送信" }));
+  const approve = el("button", { class: "primary", textContent: t("room.req.approve") });
+  const reject = el("button", { textContent: t("room.req.reject") });
+  const input = el("input", { placeholder: t("room.req.replyTo", { name: req.name }), maxLength: JOIN_TEXT_MAX });
+  const reply = el("form", { class: "row request-reply" }, input, el("button", { textContent: t("room.send") }));
   approve.onclick = () => { approve.disabled = reject.disabled = true; approveRequest(req); };
   reject.onclick = () => {
-    if (!confirm(`${req.name} さんの参加申し込みを拒否しますか？`)) return;
+    if (!confirm(t("room.req.rejectConfirm", { name: req.name }))) return;
     approve.disabled = reject.disabled = true;
     wsSend({ type: "join-reject", data: { id: req.id } });
   };
@@ -385,10 +386,10 @@ async function requestCard(req, shared) {
   };
   const li = el("div", { class: "request-card" },
     el("div", { class: "request-head" },
-      el("span", { textContent: `${req.name} さんが参加を申し込みました` }),
-      el("span", { class: "hint" }, "確認コード ", el("code", { textContent: code }))),
+      el("span", { textContent: t("room.req.title", { name: req.name }) }),
+      el("span", { class: "hint" }, t("room.req.code") + " ", el("code", { textContent: code, dir: "ltr" }))),
     el("div", { class: "row request-actions" }, approve, reject),
-    shared ? reply : el("p", { class: "hint", textContent: "返信欄は、ほかの参加者と接続すると使えるようになります。" }));
+    shared ? reply : el("p", { class: "hint", textContent: t("room.req.noReply") }));
   $("requests").append(li);
   return li;
 }
@@ -466,7 +467,7 @@ async function mergeReads(id, reads) {
 
 function receiptText(rec) {
   const names = Object.entries(rec.reads || {}).filter(([k]) => k !== selfId).map(([, n]) => n);
-  return { text: names.length ? `既読 ${names.length}` : "", title: names.join("、") };
+  return { text: names.length ? t("room.read", { n: names.length }) : "", title: names.join(t("room.listSep")) };
 }
 
 function updateReceipt(rec) {
@@ -478,7 +479,7 @@ function updateReceipt(rec) {
 }
 
 function updateTitle() {
-  const prefix = (joinRequests.length ? "【参加申請】" : "") + (unread.size ? `(${unread.size}) ` : "");
+  const prefix = (joinRequests.length ? t("room.titleRequests") : "") + (unread.size ? `(${unread.size}) ` : "");
   document.title = `${prefix}${roomId} - Meeks`;
 }
 
@@ -497,7 +498,7 @@ function renderMessage(rec, progress) {
   const meta = el("div", { class: "meta" },
     el("span", { class: "name", textContent: rec.name || "?" }),
     el("time", { textContent: fmtTime(rec.ts) }),
-    rec.via === "join" ? el("span", { class: "tag", textContent: "参加申し込み" }) : null);
+    rec.via === "join" ? el("span", { class: "tag", textContent: t("room.tag.join") }) : null);
   if (mine) {
     const r = receiptText(rec);
     meta.prepend(el("span", { class: "receipt", textContent: r.text, title: r.title }));
@@ -538,7 +539,7 @@ const pageActive = () => document.visibilityState === "visible" && document.hasF
 /** Moves the "unread from here" divider in front of `before` (null = end). */
 function placeDivider(before) {
   document.querySelector(".unread-divider")?.remove();
-  const d = el("li", { class: "unread-divider", textContent: "ここから未読" });
+  const d = el("li", { class: "unread-divider", textContent: t("room.unreadDivider") });
   d.dataset.ts = before?.dataset.ts ?? Date.now();
   $("messages").insertBefore(d, before);
 }
@@ -547,7 +548,7 @@ function renderFile(rec, progress) {
   const f = rec.file;
   const box = el("div", { class: "body file" });
   if (!rec.blob) {
-    const label = progress != null ? `受信中… ${Math.floor(progress * 100)}%` : "（ファイル本体はありません）";
+    const label = progress != null ? t("room.file.receiving", { p: Math.floor(progress * 100) }) : t("room.file.missing");
     box.append(el("div", { class: "file-name", textContent: `📄 ${f.name} (${fmtSize(f.size)})` }),
       el("div", { class: "hint", textContent: label }));
     return box;
@@ -589,7 +590,7 @@ class Peer {
     this.id = id;
     this.name = "…";
     this.inCall = false;
-    this.route = "接続中";
+    this.route = "connecting"; // connecting | p2p | turn | relay
     this.polite = myId < id;
     this.makingOffer = false;
     this.ignoreOffer = false;
@@ -692,9 +693,9 @@ class Peer {
   }
 
   async updateRoute() {
-    let route = "サーバー経由";
+    let route = "relay";
     if (this.p2p) {
-      route = "P2P";
+      route = "p2p";
       try {
         const stats = await this.pc.getStats();
         let pair;
@@ -704,11 +705,11 @@ class Peer {
         if (!pair) stats.forEach((r) => { if (r.type === "candidate-pair" && r.nominated && r.state === "succeeded") pair = r; });
         if (pair) {
           const l = stats.get(pair.localCandidateId), rm = stats.get(pair.remoteCandidateId);
-          if (l?.candidateType === "relay" || rm?.candidateType === "relay") route = "TURN中継";
+          if (l?.candidateType === "relay" || rm?.candidateType === "relay") route = "turn";
         }
       } catch { /* stats unavailable */ }
     } else if (this.pc.connectionState === "new" || this.pc.connectionState === "connecting") {
-      route = this.greeted ? "サーバー経由" : "接続中";
+      route = this.greeted ? "relay" : "connecting";
     }
     if (route !== this.route) {
       this.route = route;
@@ -740,7 +741,7 @@ function dropPeer(id) {
   if (!p) return;
   p.close();
   peers.delete(id);
-  if (p.greeted && p.name !== "…") notice(`${p.name} が退室しました`);
+  if (p.greeted && p.name !== "…") notice(t("room.notice.left", { name: p.name }));
   renderMembers();
 }
 
@@ -751,17 +752,17 @@ async function broadcast(header, body) {
 
 function renderMembers() {
   const ul = $("members");
-  ul.replaceChildren(el("li", {}, el("span", { textContent: `${myName}（自分）` }), localStream ? " 📹" : null));
+  ul.replaceChildren(el("li", {}, el("span", { textContent: t("room.me", { name: myName }) }), localStream ? " 📹" : null));
   for (const p of peers.values()) {
-    const cls = p.route === "P2P" ? "ok" : p.route === "TURN中継" ? "mid" : "relay";
+    const cls = p.route === "p2p" ? "ok" : p.route === "turn" ? "mid" : "relay";
     ul.append(el("li", {},
       el("span", { textContent: p.name }),
       p.inCall ? " 📹" : null,
-      el("span", { class: `route ${cls}`, textContent: p.route })));
+      el("span", { class: `route ${cls}`, textContent: t(`room.route.${p.route}`) })));
   }
   const n = peers.size + 1;
-  $("status").textContent = ws?.readyState !== WebSocket.OPEN ? "再接続中…"
-    : !rk ? "参加の承認待ち" : `接続済み・${n}人`;
+  $("status").textContent = ws?.readyState !== WebSocket.OPEN ? t("room.status.reconnecting")
+    : !rk ? t("room.status.waiting") : t("room.status.connected", { n });
 }
 
 // ---------- signaling ----------
@@ -794,8 +795,8 @@ function connect() {
     renderMembers();
     if (e.code === 1008 && e.reason === "room is full") {
       closedForGood = true;
-      $("status").textContent = "満室";
-      showWarn("このルームは満室です。");
+      $("status").textContent = t("room.status.full");
+      showWarn(t("room.warn.full"));
     }
     if (closedForGood) return;
     retry = Math.min(retry + 1, 5);
@@ -847,7 +848,7 @@ async function onServer(m) {
       await onJoinMessage(m);
       break;
     case "join-message-error":
-      notice(m.error === "too many messages" ? "承認前に送れるメッセージの上限に達しました" : "メッセージを送れませんでした");
+      notice(m.error === "too many messages" ? t("room.err.joinMsgLimit") : t("room.err.msgFailed"));
       break;
     case "signal": {
       if (!rk) return;
@@ -896,7 +897,7 @@ async function receive(peer, bytes) {
       peer.inCall = !!h.call;
       renderMembers();
       if (peer.stream) showTile(peer.id, peer.stream, peer.name, false);
-      notice(`${peer.name} が参加しています`);
+      notice(t("room.notice.present", { name: peer.name }));
       peer.hello(); // reply if we have not greeted yet
       if (h.inbox?.jwk && h.inbox.pub === roomInboxPub && !inboxOk()) {
         await setInbox(h.inbox);
@@ -1090,7 +1091,7 @@ async function maybeFinish(id) {
 async function sendFiles(files) {
   for (const file of files) {
     if (file.size > MAX_FILE) {
-      notice(`${file.name} は大きすぎます（上限 ${fmtSize(MAX_FILE)}）`);
+      notice(t("room.file.tooLarge", { name: file.name, max: fmtSize(MAX_FILE) }));
       continue;
     }
     const rec = {
@@ -1140,11 +1141,11 @@ async function startCall() {
     try {
       localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (e) {
-      notice(`カメラ・マイクを使用できません: ${e.message}`);
+      notice(t("room.err.media", { msg: e.message }));
       return;
     }
   }
-  showTile("self", localStream, `${myName}（自分）`, true);
+  showTile("self", localStream, t("room.me", { name: myName }), true);
   for (const p of peers.values()) p.addStream(localStream);
   $("call").hidden = true;
   updateMediaButtons();
@@ -1171,8 +1172,8 @@ function toggleTrack(kind) {
 
 function updateMediaButtons() {
   const a = localStream?.getAudioTracks()[0], v = localStream?.getVideoTracks()[0];
-  $("toggle-mic").textContent = `マイク: ${a?.enabled ? "オン" : "オフ"}`;
-  $("toggle-cam").textContent = `カメラ: ${v ? (v.enabled ? "オン" : "オフ") : "なし"}`;
+  $("toggle-mic").textContent = t("room.mic", { state: t(a?.enabled ? "room.on" : "room.off") });
+  $("toggle-cam").textContent = t("room.cam", { state: t(v ? (v.enabled ? "room.on" : "room.off") : "room.none") });
   $("toggle-mic").hidden = $("toggle-cam").hidden = $("hangup").hidden = !localStream;
 }
 
@@ -1189,9 +1190,9 @@ function setComposerMode(mode) {
   $("file").disabled = $("call").disabled = mode !== "member";
   $("file-btn").hidden = mode !== "member";
   $("text").placeholder = {
-    member: "メッセージ（Enterで送信 / Shift+Enterで改行）",
-    applicant: "参加者へのメッセージ（承認前でも送れます）",
-    off: "参加が承認されるまでお待ちください",
+    member: t("room.ph.member"),
+    applicant: t("room.ph.applicant"),
+    off: t("room.ph.off"),
   }[mode];
 }
 
@@ -1201,7 +1202,7 @@ async function askName() {
   dlg.showModal();
   dlg.addEventListener("cancel", (e) => e.preventDefault());
   await new Promise((r) => dlg.addEventListener("close", r, { once: true }));
-  myName = $("name-input").value.trim().slice(0, 32) || "ゲスト";
+  myName = $("name-input").value.trim().slice(0, 32) || t("room.guest");
   store("meeks.name", myName);
 }
 
@@ -1211,8 +1212,8 @@ function bindUI() {
 
   $("copy-url").onclick = async () => {
     await navigator.clipboard.writeText(location.origin + location.pathname);
-    $("copy-url").textContent = "コピーしました";
-    setTimeout(() => ($("copy-url").textContent = "URLをコピー"), 1500);
+    $("copy-url").textContent = t("room.copied");
+    setTimeout(() => ($("copy-url").textContent = t("room.copyUrl")), 1500);
   };
   $("call").onclick = startCall;
   $("hangup").onclick = hangup;
@@ -1220,7 +1221,7 @@ function bindUI() {
   $("toggle-cam").onclick = () => toggleTrack("video");
 
   $("clear-history").onclick = async () => {
-    if (!confirm("この端末に保存されているこのルームの過去ログを削除しますか？")) return;
+    if (!confirm(t("room.clearConfirm"))) return;
     await dbClear();
     for (const li of rendered.values()) readObserver.unobserve(li);
     $("messages").replaceChildren();
@@ -1270,6 +1271,17 @@ function bindUI() {
 }
 
 async function main() {
+  const lang = pickLang();
+  await loadLang(lang);
+  applyI18n();
+  document.querySelector(".topbar .logo").href = lang === "ja" ? "/" : `/${lang}`;
+  const select = $("lang-select");
+  for (const [code, name] of LANGS) select.append(el("option", { value: code, textContent: name }));
+  select.value = lang;
+  select.onchange = () => {
+    rememberLang(select.value);
+    location.reload();
+  };
   bindUI();
   setComposerMode("off");
   await loadStoredKey();
