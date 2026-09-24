@@ -90,6 +90,22 @@ location / {
 }
 ```
 
+## Docker で設置（既存の Caddy と同居）
+
+`deploy/` に、TLS 終端を既存の Caddy（例: passist の構成）に任せる構成を用意しています。
+
+```bash
+git clone https://github.com/paps-jp/meeks && cd meeks/deploy
+cp .env.example .env        # PUBLIC_IP と TURN_SECRET（openssl rand -hex 32）を設定
+mkdir -p data && sudo chown 65532:65532 data && sudo chmod 700 data
+docker compose up -d --build
+```
+
+- コンテナは Caddy の Docker ネットワーク（既定 `passist_pn`）に参加し、Caddy から `meeks:8080` へ中継する。`Caddyfile.meeks` のブロックを Caddy の Caddyfile に追記して reload する
+- 内蔵 TURN は `3479/tcp,udp` と中継用 `40000-40099/udp`（coturn の 3478 / 49152-65535 と衝突しない）。ファイアウォールで開放する
+- Cloudflare のプロキシを使う場合、IP は `CF-Connecting-IP` から取得できるが送信元ポートは記録できない。開示請求対応を重視するなら DNS only を推奨
+- TURN は UDP のため Cloudflare を通らない。`TURN_HOST` は IP か DNS only のホスト名にする
+
 ## SEO
 
 - トップページ: title / description / canonical / OGP / X（Twitter）カード / 構造化データ（WebApplication）/ manifest。共有用画像は `web/static/img/og.png`（1200×630）

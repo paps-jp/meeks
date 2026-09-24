@@ -1,0 +1,47 @@
+name: meeks
+
+# Meeks alongside an existing Caddy that terminates TLS (e.g. the passist
+# stack). The container joins Caddy's Docker network; Caddy proxies
+# https://meeks.paps.jp to meeks:8080 (see Caddyfile.meeks).
+#
+# Setup:
+#   cp .env.example .env         # fill in PUBLIC_IP and TURN_SECRET
+#   mkdir -p data && sudo chown 65532:65532 data && sudo chmod 700 data
+#   docker compose up -d --build
+#
+# The embedded TURN server uses 3479 and relay ports 40000-40099/udp so it
+# does not collide with a coturn on 3478 / 49152-65535. TURN is reached by IP,
+# not through Cloudflare (which cannot proxy UDP).
+services:
+  meeks:
+    build:
+      context: ..
+    image: meeks:latest
+    container_name: meeks
+    restart: unless-stopped
+    command:
+      - -addr=:8080
+      - -site-url=${SITE_URL:-https://meeks.paps.jp}
+      - -trust-proxy
+      - -iplog-dir=/data/iplog
+      - -iplog-days=${IPLOG_DAYS:-730}
+      - -state-file=/data/state.json
+      - -turn-addr=:3479
+      - -turn-public-ip=${PUBLIC_IP}
+      - -turn-host=${TURN_HOST:-${PUBLIC_IP}}
+      - -turn-secret=${TURN_SECRET}
+      - -turn-relay-min=40000
+      - -turn-relay-max=40099
+    ports:
+      - "3479:3479/tcp"
+      - "3479:3479/udp"
+      - "40000-40099:40000-40099/udp"
+    volumes:
+      - ./data:/data
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+    name: ${PROXY_NETWORK:-passist_pn}

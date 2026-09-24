@@ -2,3 +2,5 @@
 /meeks.exe
 /data/
 /.claude/
+/deploy/.env
+/deploy/data/
