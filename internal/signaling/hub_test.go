@@ -73,7 +73,7 @@ func newTestHub(t *testing.T, maxPeers int) (*Hub, *httptest.Server) {
 }
 
 func TestHubRouting(t *testing.T) {
-	_, srv := newTestHub(t, 2)
+	hub, srv := newTestHub(t, 2)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -114,9 +114,15 @@ func TestHubRouting(t *testing.T) {
 		t.Fatalf("third peer: err = %v", err)
 	}
 
+	if !hub.Connected(wb.ID) || hub.Connected("nobody") {
+		t.Fatal("Connected does not reflect open sessions")
+	}
 	b.Close(websocket.StatusNormalClosure, "")
 	if m := read(t, ctx, a); m.Type != "peer-left" || m.ID != wb.ID {
 		t.Fatalf("a got %+v", m)
+	}
+	if hub.Connected(wb.ID) {
+		t.Fatal("closed session still reported as connected")
 	}
 
 	shortCtx, shortCancel := context.WithTimeout(ctx, 200*time.Millisecond)

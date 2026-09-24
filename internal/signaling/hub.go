@@ -85,6 +85,7 @@ type Hub struct {
 	cfg   Config
 	mu    sync.Mutex
 	rooms map[string]map[string]*client
+	peers map[string]*client // peer ID -> connection, across all rooms
 }
 
 type client struct {
@@ -133,7 +134,7 @@ func NewHub(cfg Config) *Hub {
 	if cfg.MaxPeers <= 0 {
 		cfg.MaxPeers = 16
 	}
-	return &Hub{cfg: cfg, rooms: map[string]map[string]*client{}}
+	return &Hub{cfg: cfg, rooms: map[string]map[string]*client{}, peers: map[string]*client{}}
 }
 
 // ServeWS handles GET /ws/{room}.
@@ -286,6 +287,7 @@ func (h *Hub) join(c *client) (peers []string, ok bool) {
 		p.enqueue(joined)
 	}
 	room[c.id] = c
+	h.peers[c.id] = c
 	return peers, true
 }
 
@@ -294,6 +296,7 @@ func (h *Hub) leave(c *client) {
 	defer h.mu.Unlock()
 	room := h.rooms[c.room]
 	delete(room, c.id)
+	delete(h.peers, c.id)
 	if len(room) == 0 {
 		delete(h.rooms, c.room)
 		return
@@ -320,6 +323,14 @@ func (h *Hub) forward(from *client, to string, msg []byte) {
 			p.enqueue(msg)
 		}
 	}
+}
+
+// Connected reports whether a signaling session is currently open. TURN
+// credentials are only honored while their session is connected.
+func (h *Hub) Connected(peerID string) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.peers[peerID] != nil
 }
 
 // RoomCount returns the number of active rooms (for tests/metrics).
