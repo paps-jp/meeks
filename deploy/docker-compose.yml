@@ -9,9 +9,11 @@ name: meeks
 #   mkdir -p data && sudo chown 65532:65532 data && sudo chmod 700 data
 #   docker compose up -d --build
 #
-# The embedded TURN server uses 3479 and relay ports 40000-40099/udp so it
-# does not collide with a coturn on 3478 / 49152-65535. TURN is reached by IP,
-# not through Cloudflare (which cannot proxy UDP).
+# The embedded TURN server uses 3479 and relay ports 30000-30099/udp so it
+# does not collide with a coturn on 3478 / 49152-65535, stays below the
+# kernel's ephemeral range (32768+), and fits packet filters that only accept
+# ports 1-32767 (e.g. Sakura VPS). TURN is reached by IP, not through
+# Cloudflare (which cannot proxy UDP).
 services:
   meeks:
     build:
@@ -30,12 +32,12 @@ services:
       - -turn-public-ip=${PUBLIC_IP}
       - -turn-host=${TURN_HOST:-${PUBLIC_IP}}
       - -turn-secret=${TURN_SECRET}
-      - -turn-relay-min=40000
-      - -turn-relay-max=40099
+      - -turn-relay-min=${TURN_RELAY_MIN:-30000}
+      - -turn-relay-max=${TURN_RELAY_MAX:-30099}
     ports:
       - "3479:3479/tcp"
       - "3479:3479/udp"
-      - "40000-40099:40000-40099/udp"
+      - "${TURN_RELAY_MIN:-30000}-${TURN_RELAY_MAX:-30099}:${TURN_RELAY_MIN:-30000}-${TURN_RELAY_MAX:-30099}/udp"
     volumes:
       - ./data:/data
     networks:

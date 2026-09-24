@@ -103,7 +103,7 @@ docker compose up -d --build
 ```
 
 - コンテナは Caddy の Docker ネットワーク（既定 `passist_pn`）に参加し、Caddy から `meeks:8080` へ中継する。`Caddyfile.meeks` のブロックを Caddy の Caddyfile に追記して reload する
-- 内蔵 TURN は `3479/tcp,udp` と中継用 `40000-40099/udp`（coturn の 3478 / 49152-65535 と衝突しない）。ファイアウォールで開放する
+- 内蔵 TURN は `3479/tcp,udp` と中継用 `30000-30099/udp`（coturn の 3478 / 49152-65535 や OS の一時ポート 32768〜 と衝突せず、1〜32767 しか指定できないさくらVPS のパケットフィルタにも収まる）。`.env` の `TURN_RELAY_MIN` / `TURN_RELAY_MAX` で変更可。UFW と VPS 事業者のパケットフィルタの両方で開放する
 - Cloudflare のプロキシを使う場合、IP は `CF-Connecting-IP` から取得できるが送信元ポートは記録できない。開示請求対応を重視するなら DNS only を推奨
 - TURN は UDP のため Cloudflare を通らない。`TURN_HOST` は IP か DNS only のホスト名にする
 
