@@ -2,8 +2,11 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io/fs"
+	"log"
 	"mime"
 	"net/http"
 	"regexp"
@@ -37,7 +40,11 @@ func newSite(static fs.FS, siteURL string, trustProxy bool) (*site, error) {
 }
 
 func (s *site) register(mux *http.ServeMux) {
-	mux.Handle("GET /static/", http.StripPrefix("/static/", cacheFor(3600, http.FileServerFS(s.static))))
+	etags, err := fileETags(s.static)
+	if err != nil {
+		log.Printf("static etags: %v", err)
+	}
+	mux.Handle("GET /static/", http.StripPrefix("/static/", revalidate(etags, http.FileServerFS(s.static))))
 	mux.HandleFunc("GET /{$}", s.serveIndex)
 	mux.HandleFunc("GET /robots.txt", s.serveRobots)
 	mux.HandleFunc("GET /sitemap.xml", s.serveSitemap)
@@ -100,10 +107,33 @@ func (s *site) serveSitemap(w http.ResponseWriter, r *http.Request) {
 `, s.origin(r))
 }
 
-func cacheFor(seconds int, h http.Handler) http.Handler {
-	v := fmt.Sprintf("public, max-age=%d", seconds)
+// fileETags hashes every embedded file. Embedded files carry no
+// modification time, so without an ETag browsers could not revalidate them.
+func fileETags(fsys fs.FS) (map[string]string, error) {
+	tags := map[string]string{}
+	err := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		b, err := fs.ReadFile(fsys, path)
+		if err != nil {
+			return err
+		}
+		sum := sha256.Sum256(b)
+		tags[path] = `"` + hex.EncodeToString(sum[:8]) + `"`
+		return nil
+	})
+	return tags, err
+}
+
+// revalidate makes browsers check for updates on every use (cheap 304s via
+// the ETag), so a new release is picked up immediately.
+func revalidate(etags map[string]string, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", v)
+		w.Header().Set("Cache-Control", "no-cache")
+		if tag, ok := etags[r.URL.Path]; ok {
+			w.Header().Set("ETag", tag) // http.ServeContent answers If-None-Match with 304
+		}
 		h.ServeHTTP(w, r)
 	})
 }

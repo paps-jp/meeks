@@ -141,6 +141,14 @@ body.home main { width: 100%; max-width: 760px; display: flex; flex-direction: c
   display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;
 }
 .features li { background: var(--panel); border-radius: 22px; padding: 18px 20px; box-shadow: var(--shadow-sm); }
+.feat-icon {
+  display: grid; place-items: center; width: 46px; height: 46px; margin-bottom: 12px;
+  border-radius: 16px; background: var(--brand-soft);
+}
+.feat-icon svg {
+  width: 24px; height: 24px; fill: none; stroke: var(--brand);
+  stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round;
+}
 .features h3 { margin: 0 0 6px; font-size: 1em; color: var(--brand-strong); }
 .features p { margin: 0; font-size: 0.9em; color: var(--muted); }
 

@@ -144,3 +144,7 @@ web/static/                  ブラウザクライアント（埋め込み）
   crypto.js                  E2EE（AES-256-GCM）・鍵の受け渡し（ECDH）
   room.js                    WebRTC・フォールバック・過去ログ・ファイル・通話
 ```
+
+## ライセンス
+
+[MIT License](LICENSE) (C) PAPS

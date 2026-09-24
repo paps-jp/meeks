@@ -60,4 +60,17 @@ func TestSite(t *testing.T) {
 	if w := get("/static/manifest.webmanifest", "x"); w.Header().Get("Content-Type") != "application/manifest+json" {
 		t.Errorf("manifest content type %q", w.Header().Get("Content-Type"))
 	}
+
+	css := get("/static/style.css", "x")
+	tag := css.Header().Get("ETag")
+	if tag == "" || css.Header().Get("Cache-Control") != "no-cache" {
+		t.Fatalf("static caching headers: ETag %q, Cache-Control %q", tag, css.Header().Get("Cache-Control"))
+	}
+	r := httptest.NewRequest("GET", "/static/style.css", nil)
+	r.Header.Set("If-None-Match", tag)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, r)
+	if w.Code != http.StatusNotModified {
+		t.Errorf("revalidation: code %d, want 304", w.Code)
+	}
 }
