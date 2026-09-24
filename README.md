@@ -109,6 +109,16 @@ docker compose up -d --build
 - Cloudflare のプロキシを使う場合、IP は `CF-Connecting-IP` から取得できるが送信元ポートは記録できない。開示請求対応を重視するなら DNS only を推奨
 - TURN は UDP のため Cloudflare を通らない。`TURN_HOST` は IP か DNS only のホスト名にする
 
+## Cloudflare TURN（予備の中継）
+
+自前の TURN の後ろに、Cloudflare Realtime TURN を予備として追加できる（ブラウザには自前の TURN を先に渡すので、通常は自前が優先される）。渡すのは UDP 3478 と TLS 443（厳しいファイアウォール向け）のみ。
+
+- `.env` に `CF_TURN_KEY_ID` / `CF_TURN_KEY_TOKEN`（Cloudflare ダッシュボードの Realtime → TURN で作成）を設定する
+- 月間上限（`CF_TURN_MONTHLY_GB`、既定 900GB。無料枠は Realtime SFU と共用で 1,000GB）を守るため、`CF_ACCOUNT_ID` と「Account Analytics: Read」権限の API トークン `CF_ANALYTICS_TOKEN` も設定する。**利用量を読めない間は Cloudflare TURN を渡さない**
+- 認証情報は 30 分ごとにまとめて発行（有効期限 2 時間）。5 分ごとにアカウント全体の今月の TURN 送信量を確認し、上限に達したら渡すのをやめ、発行済みの認証情報を失効させて使用中の中継も止める。翌月に自動で再開する
+- Cloudflare 経由の中継の利用記録（IP 等）は Cloudflare 側にのみ残り、Meeks の IP ログには残らない。映像・音声は端末間で暗号化されたまま
+- 秘密情報（`TURN_SECRET` を含む）はコマンドライン引数ではなく環境変数で渡す
+
 ## SEO
 
 - トップページ: title / description / canonical / OGP / X（Twitter）カード / 構造化データ（WebApplication）/ manifest。共有用画像は `web/static/img/og.png`（1200×630）

@@ -22,6 +22,7 @@ import (
 	"syscall"
 	"time"
 
+	"meeks/internal/cfturn"
 	"meeks/internal/iplog"
 	"meeks/internal/signaling"
 	"meeks/internal/store"
@@ -65,11 +66,12 @@ func serve(args []string) error {
 	turnAddr := fset.String("turn-addr", ":3478", "STUN/TURN listen address (UDP+TCP)")
 	turnIP := fset.String("turn-public-ip", "127.0.0.1", "public IP advertised for TURN relays")
 	turnHost := fset.String("turn-host", "", "hostname clients use for STUN/TURN (default: the HTTP Host)")
-	turnSecret := fset.String("turn-secret", "", "shared secret for TURN credentials (default: random per start)")
+	turnSecret := fset.String("turn-secret", os.Getenv("TURN_SECRET"), "shared secret for TURN credentials (env TURN_SECRET; default: random per start)")
 	turnMin := fset.Uint("turn-relay-min", 49160, "lowest TURN relay port")
 	turnMax := fset.Uint("turn-relay-max", 49200, "highest TURN relay port")
 	turnPerPeer := fset.Int("turn-max-allocs-per-user", 30, "simultaneous TURN relays per connected user (0 = unlimited)")
 	turnTotal := fset.Int("turn-max-allocs", 1000, "simultaneous TURN relays in total (0 = unlimited)")
+	cfMonthlyGB := fset.Int("cf-turn-monthly-gb", 900, "stop offering Cloudflare TURN when this month's account TURN egress reaches this many GB")
 	turnPrivate := fset.Bool("turn-allow-private", false, "allow relaying to private/loopback addresses (development only)")
 	fset.Parse(args)
 
@@ -141,6 +143,36 @@ func serve(args []string) error {
 			}
 		}
 		log.Printf("STUN/TURN listening on %s (relay IP %s)", *turnAddr, *turnIP)
+	}
+
+	// Cloudflare Realtime TURN as a backup relay, listed after the embedded
+	// server so browsers prefer ours. Secrets come from the environment:
+	// CF_TURN_KEY_ID / CF_TURN_KEY_TOKEN, and CF_ACCOUNT_ID /
+	// CF_ANALYTICS_TOKEN to enforce the monthly cap (without them the backup
+	// stays off).
+	if id, tok := os.Getenv("CF_TURN_KEY_ID"), os.Getenv("CF_TURN_KEY_TOKEN"); id != "" && tok != "" {
+		cf := cfturn.New(cfturn.Config{
+			KeyID: id, KeyToken: tok,
+			AccountID: os.Getenv("CF_ACCOUNT_ID"), AnalyticsToken: os.Getenv("CF_ANALYTICS_TOKEN"),
+			MonthlyLimit: int64(*cfMonthlyGB) * 1e9,
+			// UDP for normal networks, TLS on 443 for strict firewalls.
+			URLFilter: func(u string) bool {
+				return strings.HasSuffix(u, ":3478?transport=udp") ||
+					(strings.HasPrefix(u, "turns:") && strings.HasSuffix(u, ":443?transport=tcp"))
+			},
+		})
+		go cf.Run(ctx)
+		own := ice
+		ice = func(peerID, host string) []signaling.ICEServer {
+			var out []signaling.ICEServer
+			if own != nil {
+				out = own(peerID, host)
+			}
+			for _, s := range cf.ICEServers() {
+				out = append(out, signaling.ICEServer{URLs: s.URLs, Username: s.Username, Credential: s.Credential})
+			}
+			return out
+		}
 	}
 
 	hub := signaling.NewHub(signaling.Config{

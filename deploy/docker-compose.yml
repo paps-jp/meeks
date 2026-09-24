@@ -41,10 +41,17 @@ services:
       - -turn-addr=:3479
       - -turn-public-ip=${PUBLIC_IP}
       - -turn-host=${TURN_HOST:-${PUBLIC_IP}}
-      - -turn-secret=${TURN_SECRET}
       - -turn-relay-min=${TURN_RELAY_MIN:-30000}
       - -turn-relay-max=${TURN_RELAY_MAX:-30999}
       - -turn-max-allocs=${TURN_MAX_ALLOCS:-1000}
       - -turn-max-allocs-per-user=${TURN_MAX_ALLOCS_PER_USER:-30}
+      - -cf-turn-monthly-gb=${CF_TURN_MONTHLY_GB:-900}
+    # Secrets go through the environment, not the command line (visible in ps).
+    environment:
+      TURN_SECRET: ${TURN_SECRET}
+      CF_TURN_KEY_ID: ${CF_TURN_KEY_ID:-}
+      CF_TURN_KEY_TOKEN: ${CF_TURN_KEY_TOKEN:-}
+      CF_ACCOUNT_ID: ${CF_ACCOUNT_ID:-}
+      CF_ANALYTICS_TOKEN: ${CF_ANALYTICS_TOKEN:-}
     volumes:
       - ./data:/data
