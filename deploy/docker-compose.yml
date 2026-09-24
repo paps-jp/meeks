@@ -1,19 +1,28 @@
 name: meeks
 
-# Meeks alongside an existing Caddy that terminates TLS (e.g. the passist
-# stack). The container joins Caddy's Docker network; Caddy proxies
-# https://meeks.paps.jp to meeks:8080 (see Caddyfile.meeks).
+# Meeks next to an existing Caddy that terminates TLS (e.g. the passist
+# stack).
+#
+# The container uses the host network: the TURN relay needs a large UDP
+# port range, and publishing ranges through Docker starts one docker-proxy
+# process per port and IP family (1000 ports = ~2000 processes), which does
+# not fit a small VPS. With the host network, UFW also applies directly.
+#
+# HTTP listens on HTTP_ADDR. Set it to the gateway IP of Caddy's Docker
+# network (e.g. 172.18.0.1:8080) so that only Caddy can reach it, allow that
+# network in UFW, and point Caddy at it (see Caddyfile.meeks).
 #
 # Setup:
-#   cp .env.example .env         # fill in PUBLIC_IP and TURN_SECRET
+#   cp .env.example .env         # fill in PUBLIC_IP, TURN_SECRET, HTTP_ADDR
 #   mkdir -p data && sudo chown 65532:65532 data && sudo chmod 700 data
 #   docker compose up -d --build
 #
-# The embedded TURN server uses 3479 and relay ports 30000-30099/udp so it
-# does not collide with a coturn on 3478 / 49152-65535, stays below the
-# kernel's ephemeral range (32768+), and fits packet filters that only accept
-# ports 1-32767 (e.g. Sakura VPS). TURN is reached by IP, not through
-# Cloudflare (which cannot proxy UDP).
+# Ports to open in every firewall in front of the server:
+#   3479/tcp, 3479/udp (TURN), TURN_RELAY_MIN-TURN_RELAY_MAX/udp (relays).
+# The defaults 30000-30999 avoid coturn (3478, 49152-65535), stay below the
+# kernel's ephemeral range (32768+) and fit packet filters limited to ports
+# 1-32767 (e.g. Sakura VPS). TURN is reached by IP, not through Cloudflare
+# (which cannot proxy UDP).
 services:
   meeks:
     build:
@@ -21,8 +30,9 @@ services:
     image: meeks:latest
     container_name: meeks
     restart: unless-stopped
+    network_mode: host
     command:
-      - -addr=:8080
+      - -addr=${HTTP_ADDR:-127.0.0.1:8080}
       - -site-url=${SITE_URL:-https://meeks.paps.jp}
       - -trust-proxy
       - -iplog-dir=/data/iplog
@@ -33,17 +43,8 @@ services:
       - -turn-host=${TURN_HOST:-${PUBLIC_IP}}
       - -turn-secret=${TURN_SECRET}
       - -turn-relay-min=${TURN_RELAY_MIN:-30000}
-      - -turn-relay-max=${TURN_RELAY_MAX:-30099}
-    ports:
-      - "3479:3479/tcp"
-      - "3479:3479/udp"
-      - "${TURN_RELAY_MIN:-30000}-${TURN_RELAY_MAX:-30099}:${TURN_RELAY_MIN:-30000}-${TURN_RELAY_MAX:-30099}/udp"
+      - -turn-relay-max=${TURN_RELAY_MAX:-30999}
+      - -turn-max-allocs=${TURN_MAX_ALLOCS:-1000}
+      - -turn-max-allocs-per-user=${TURN_MAX_ALLOCS_PER_USER:-30}
     volumes:
       - ./data:/data
-    networks:
-      - proxy
-
-networks:
-  proxy:
-    external: true
-    name: ${PROXY_NETWORK:-passist_pn}

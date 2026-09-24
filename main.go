@@ -68,8 +68,8 @@ func serve(args []string) error {
 	turnSecret := fset.String("turn-secret", "", "shared secret for TURN credentials (default: random per start)")
 	turnMin := fset.Uint("turn-relay-min", 49160, "lowest TURN relay port")
 	turnMax := fset.Uint("turn-relay-max", 49200, "highest TURN relay port")
-	turnPerPeer := fset.Int("turn-max-allocs-per-user", 10, "simultaneous TURN relays per connected user (0 = unlimited)")
-	turnTotal := fset.Int("turn-max-allocs", 100, "simultaneous TURN relays in total (0 = unlimited)")
+	turnPerPeer := fset.Int("turn-max-allocs-per-user", 30, "simultaneous TURN relays per connected user (0 = unlimited)")
+	turnTotal := fset.Int("turn-max-allocs", 1000, "simultaneous TURN relays in total (0 = unlimited)")
 	turnPrivate := fset.Bool("turn-allow-private", false, "allow relaying to private/loopback addresses (development only)")
 	fset.Parse(args)
 

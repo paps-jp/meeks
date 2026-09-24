@@ -65,8 +65,8 @@ go build -o meeks .
 | `-turn-public-ip` | `127.0.0.1` | TURN 中継アドレスとして通知するサーバーのグローバル IP |
 | `-turn-host` | HTTP の Host | クライアントが STUN/TURN に接続するホスト名 |
 | `-turn-secret` | 起動毎にランダム | TURN 認証用の共有シークレット（複数台構成時は固定する） |
-| `-turn-max-allocs-per-user` | 10 | 1 人（接続）あたりの同時 TURN 中継数 |
-| `-turn-max-allocs` | 100 | サーバー全体の同時 TURN 中継数 |
+| `-turn-max-allocs-per-user` | 30 | 1 人（接続）あたりの同時 TURN 中継数。ブラウザはルームを開いている間、相手ごとに UDP と TCP の中継を確保する |
+| `-turn-max-allocs` | 1000 | サーバー全体の同時 TURN 中継数（中継ポート数以下にする） |
 | `-turn-relay-min` / `-max` | 49160 / 49200 | TURN 中継に使う UDP ポート範囲 |
 
 ## 本番運用
@@ -99,13 +99,13 @@ location / {
 
 ```bash
 git clone https://github.com/paps-jp/meeks && cd meeks/deploy
-cp .env.example .env        # PUBLIC_IP と TURN_SECRET（openssl rand -hex 32）を設定
+cp .env.example .env        # PUBLIC_IP、TURN_SECRET（openssl rand -hex 32）、HTTP_ADDR を設定
 mkdir -p data && sudo chown 65532:65532 data && sudo chmod 700 data
 docker compose up -d --build
 ```
 
-- コンテナは Caddy の Docker ネットワーク（既定 `passist_pn`）に参加し、Caddy から `meeks:8080` へ中継する。`Caddyfile.meeks` のブロックを Caddy の Caddyfile に追記して reload する
-- 内蔵 TURN は `3479/tcp,udp` と中継用 `30000-30099/udp`（coturn の 3478 / 49152-65535 や OS の一時ポート 32768〜 と衝突せず、1〜32767 しか指定できないさくらVPS のパケットフィルタにも収まる）。`.env` の `TURN_RELAY_MIN` / `TURN_RELAY_MAX` で変更可。UFW と VPS 事業者のパケットフィルタの両方で開放する
+- コンテナはホストネットワークで動かす（Docker でポート範囲を公開すると 1 ポートごとに docker-proxy が起動し、1,000 ポートでは約 2,000 プロセスになってメモリが足りなくなるため）。HTTP は `HTTP_ADDR`（Caddy の Docker ネットワークのゲートウェイ IP、例 `172.18.0.1:8080`）で待ち受け、UFW でそのネットワークからの接続だけを許可する。`Caddyfile.meeks` のブロックを Caddy の Caddyfile に追記して reload する
+- 内蔵 TURN は `3479/tcp,udp` と中継用 `30000-30999/udp`（coturn の 3478 / 49152-65535 や OS の一時ポート 32768〜 と衝突せず、1〜32767 しか指定できないさくらVPS のパケットフィルタにも収まる）。`.env` の `TURN_RELAY_MIN` / `TURN_RELAY_MAX` で変更可。UFW と VPS 事業者のパケットフィルタの両方で開放する
 - Cloudflare のプロキシを使う場合、IP は `CF-Connecting-IP` から取得できるが送信元ポートは記録できない。開示請求対応を重視するなら DNS only を推奨
 - TURN は UDP のため Cloudflare を通らない。`TURN_HOST` は IP か DNS only のホスト名にする
 
