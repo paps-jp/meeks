@@ -42,6 +42,9 @@
   "room.callVoice": "वॉइस कॉल",
   "room.callVideo": "वीडियो कॉल",
   "room.leave": "बाहर निकलें",
+  "room.shareScreen": "स्क्रीन साझा करें",
+  "room.stopShare": "साझा करना बंद करें",
+  "room.screenOf": "{name} की स्क्रीन",
   "room.members": "प्रतिभागी",
   "room.safetyCode": "सुरक्षा कोड",
   "room.safetyHint": "अगर सबको एक ही कोड दिखे, तो सब एक ही एन्क्रिप्शन कुंजी इस्तेमाल कर रहे हैं।",
@@ -98,5 +101,6 @@
   "room.file.tooLarge": "{name} बहुत बड़ी है (सीमा {max})",
   "room.err.joinMsgLimit": "मंज़ूरी से पहले भेजे जा सकने वाले संदेशों की सीमा पूरी हो गई",
   "room.err.msgFailed": "संदेश नहीं भेजा जा सका",
-  "room.err.media": "कैमरा या माइक इस्तेमाल नहीं हो सका: {msg}"
+  "room.err.media": "कैमरा या माइक इस्तेमाल नहीं हो सका: {msg}",
+  "room.err.share": "स्क्रीन साझा नहीं हो सकी: {msg}"
 }

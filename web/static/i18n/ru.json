@@ -42,6 +42,9 @@
   "room.callVoice": "Аудиозвонок",
   "room.callVideo": "Видеозвонок",
   "room.leave": "Выйти",
+  "room.shareScreen": "Показать экран",
+  "room.stopShare": "Остановить показ",
+  "room.screenOf": "Экран: {name}",
   "room.members": "Участники",
   "room.safetyCode": "Код безопасности",
   "room.safetyHint": "Если у всех одинаковый код, все используют один ключ шифрования.",
@@ -98,5 +101,6 @@
   "room.file.tooLarge": "{name} слишком большой (максимум {max})",
   "room.err.joinMsgLimit": "Достигнут лимит сообщений до одобрения",
   "room.err.msgFailed": "Не удалось отправить сообщение",
-  "room.err.media": "Не удаётся использовать камеру или микрофон: {msg}"
+  "room.err.media": "Не удаётся использовать камеру или микрофон: {msg}",
+  "room.err.share": "Не удалось показать экран: {msg}"
 }

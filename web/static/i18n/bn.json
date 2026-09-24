@@ -42,6 +42,9 @@
   "room.callVoice": "ভয়েস কল",
   "room.callVideo": "ভিডিও কল",
   "room.leave": "বের হন",
+  "room.shareScreen": "স্ক্রিন শেয়ার",
+  "room.stopShare": "শেয়ার বন্ধ করুন",
+  "room.screenOf": "{name}-এর স্ক্রিন",
   "room.members": "অংশগ্রহণকারী",
   "room.safetyCode": "নিরাপত্তা কোড",
   "room.safetyHint": "সবাই একই কোড দেখলে সবাই একই এনক্রিপশন কী ব্যবহার করছে।",
@@ -98,5 +101,6 @@
   "room.file.tooLarge": "{name} খুব বড় (সীমা {max})",
   "room.err.joinMsgLimit": "অনুমোদনের আগে পাঠানো যায় এমন বার্তার সীমা পূর্ণ হয়েছে",
   "room.err.msgFailed": "বার্তা পাঠানো যায়নি",
-  "room.err.media": "ক্যামেরা বা মাইক ব্যবহার করা যাচ্ছে না: {msg}"
+  "room.err.media": "ক্যামেরা বা মাইক ব্যবহার করা যাচ্ছে না: {msg}",
+  "room.err.share": "স্ক্রিন শেয়ার করা যাচ্ছে না: {msg}"
 }

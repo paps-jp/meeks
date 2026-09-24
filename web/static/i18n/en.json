@@ -42,6 +42,9 @@
   "room.callVoice": "Voice call",
   "room.callVideo": "Video call",
   "room.leave": "Leave",
+  "room.shareScreen": "Share screen",
+  "room.stopShare": "Stop sharing",
+  "room.screenOf": "{name}'s screen",
   "room.members": "Participants",
   "room.safetyCode": "Safety code",
   "room.safetyHint": "If everyone sees the same code, you all use the same encryption key.",
@@ -98,5 +101,6 @@
   "room.file.tooLarge": "{name} is too large (limit {max})",
   "room.err.joinMsgLimit": "You have reached the message limit before approval",
   "room.err.msgFailed": "Could not send the message",
-  "room.err.media": "Cannot use camera or microphone: {msg}"
+  "room.err.media": "Cannot use camera or microphone: {msg}",
+  "room.err.share": "Cannot share the screen: {msg}"
 }

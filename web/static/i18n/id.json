@@ -42,6 +42,9 @@
   "room.callVoice": "Panggilan suara",
   "room.callVideo": "Panggilan video",
   "room.leave": "Keluar",
+  "room.shareScreen": "Bagikan layar",
+  "room.stopShare": "Berhenti berbagi",
+  "room.screenOf": "Layar {name}",
   "room.members": "Peserta",
   "room.safetyCode": "Kode keamanan",
   "room.safetyHint": "Jika semua orang melihat kode yang sama, semua memakai kunci enkripsi yang sama.",
@@ -98,5 +101,6 @@
   "room.file.tooLarge": "{name} terlalu besar (batas {max})",
   "room.err.joinMsgLimit": "Batas pesan sebelum persetujuan telah tercapai",
   "room.err.msgFailed": "Pesan tidak dapat dikirim",
-  "room.err.media": "Tidak dapat menggunakan kamera atau mikrofon: {msg}"
+  "room.err.media": "Tidak dapat menggunakan kamera atau mikrofon: {msg}",
+  "room.err.share": "Tidak dapat membagikan layar: {msg}"
 }

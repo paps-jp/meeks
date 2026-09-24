@@ -42,6 +42,9 @@
   "room.callVoice": "음성 통화",
   "room.callVideo": "영상 통화",
   "room.leave": "나가기",
+  "room.shareScreen": "화면 공유",
+  "room.stopShare": "공유 중지",
+  "room.screenOf": "{name}님의 화면",
   "room.members": "참가자",
   "room.safetyCode": "보안 확인 코드",
   "room.safetyHint": "모두에게 같은 코드가 보이면 같은 키로 암호화되어 있습니다.",
@@ -98,5 +101,6 @@
   "room.file.tooLarge": "{name}은(는) 너무 큽니다 (최대 {max})",
   "room.err.joinMsgLimit": "승인 전에 보낼 수 있는 메시지 수를 초과했습니다",
   "room.err.msgFailed": "메시지를 보내지 못했습니다",
-  "room.err.media": "카메라·마이크를 사용할 수 없습니다: {msg}"
+  "room.err.media": "카메라·마이크를 사용할 수 없습니다: {msg}",
+  "room.err.share": "화면을 공유할 수 없습니다: {msg}"
 }

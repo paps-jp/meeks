@@ -42,6 +42,9 @@
   "room.callVoice": "مكالمة صوتية",
   "room.callVideo": "مكالمة فيديو",
   "room.leave": "مغادرة",
+  "room.shareScreen": "مشاركة الشاشة",
+  "room.stopShare": "إيقاف المشاركة",
+  "room.screenOf": "شاشة {name}",
   "room.members": "المشاركون",
   "room.safetyCode": "رمز الأمان",
   "room.safetyHint": "إذا ظهر الرمز نفسه للجميع فأنتم تستخدمون مفتاح التشفير نفسه.",
@@ -98,5 +101,6 @@
   "room.file.tooLarge": "{name} كبير جدًا (الحد الأقصى {max})",
   "room.err.joinMsgLimit": "بلغت الحد الأقصى للرسائل قبل الموافقة",
   "room.err.msgFailed": "تعذّر إرسال الرسالة",
-  "room.err.media": "تعذّر استخدام الكاميرا أو الميكروفون: {msg}"
+  "room.err.media": "تعذّر استخدام الكاميرا أو الميكروفون: {msg}",
+  "room.err.share": "تعذّرت مشاركة الشاشة: {msg}"
 }

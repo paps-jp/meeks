@@ -42,6 +42,9 @@
   "room.callVoice": "音声通話",
   "room.callVideo": "ビデオ通話",
   "room.leave": "退室",
+  "room.shareScreen": "画面共有",
+  "room.stopShare": "共有を停止",
+  "room.screenOf": "{name} の画面",
   "room.members": "参加者",
   "room.safetyCode": "安全確認コード",
   "room.safetyHint": "全員の表示が同じなら同じ鍵で暗号化されています。",
@@ -98,5 +101,6 @@
   "room.file.tooLarge": "{name} は大きすぎます（上限 {max}）",
   "room.err.joinMsgLimit": "承認前に送れるメッセージの上限に達しました",
   "room.err.msgFailed": "メッセージを送れませんでした",
-  "room.err.media": "カメラ・マイクを使用できません: {msg}"
+  "room.err.media": "カメラ・マイクを使用できません: {msg}",
+  "room.err.share": "画面共有を開始できません: {msg}"
 }

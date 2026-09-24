@@ -39,6 +39,8 @@ let ws = null;
 let iceServers = [];
 let localStream = null;
 let callKind = null;     // "audio" | "video" while we are in a call
+let screenStream = null; // our screen share, independent of the call
+const canShare = !!navigator.mediaDevices?.getDisplayMedia; // unavailable on most phones
 let closedForGood = false;
 let claimed = false;     // server knows we hold the key (this connection)
 let creating = false;    // we made a new key and are registering the room
@@ -596,8 +598,10 @@ class Peer {
     this.makingOffer = false;
     this.ignoreOffer = false;
     this.greeted = false;
-    this.senders = [];
-    this.stream = null;
+    this.senders = { cam: [], screen: [] };
+    this.streams = new Map(); // remote stream ID -> MediaStream
+    this.screenId = null;     // ID of the remote stream that is a screen share
+    this.sharing = false;
     this.syncDone = null;
 
     this.pc = new RTCPeerConnection({
@@ -629,12 +633,17 @@ class Peer {
     };
     this.pc.ontrack = ({ track, streams }) => {
       const stream = streams[0] || new MediaStream([track]);
-      this.stream = stream;
-      showTile(this.id, stream, this.name, false);
-      stream.onremovetrack = () => { if (stream.getTracks().length === 0) removeTile(this.id); };
+      this.streams.set(stream.id, stream);
+      this.showStream(stream);
+      stream.onremovetrack = () => {
+        if (stream.getTracks().length) return;
+        this.streams.delete(stream.id);
+        removeStreamTile(stream); // by stream, not key: the screen ID may already be cleared
+      };
     };
 
     if (localStream) this.addStream(localStream);
+    if (screenStream) this.addStream(screenStream, "screen");
     this.helloTimer = setTimeout(() => this.hello(), HELLO_FALLBACK_MS);
   }
 
@@ -679,18 +688,50 @@ class Peer {
     clearTimeout(this.helloTimer);
     this.send(await seal(rk.key, {
       t: "hello", name: myName, call: localStream ? callKind : false, inbox: inboxOk() ? rk.inbox : null,
+      screen: screenStream ? screenStream.id : null,
     }));
   }
 
-  addStream(stream) {
-    for (const track of stream.getTracks()) this.senders.push(this.pc.addTrack(track, stream));
+  /** kind is "cam" (the call) or "screen" (screen share). */
+  addStream(stream, kind = "cam") {
+    for (const track of stream.getTracks()) this.senders[kind].push(this.pc.addTrack(track, stream));
   }
 
-  removeStream() {
-    for (const s of this.senders) {
+  removeStream(kind = "cam") {
+    for (const s of this.senders[kind]) {
       try { this.pc.removeTrack(s); } catch { /* connection already closed */ }
     }
-    this.senders = [];
+    this.senders[kind] = [];
+  }
+
+  tileKey(stream) {
+    return stream.id === this.screenId ? `${this.id}:screen` : this.id;
+  }
+
+  showStream(stream) {
+    const screen = stream.id === this.screenId;
+    showTile(this.tileKey(stream), stream, screen ? t("room.screenOf", { name: this.name }) : this.name, false, screen);
+  }
+
+  /** Redraws tiles after a rename or after learning which stream is the screen. */
+  refreshTiles() {
+    // A screen stream that arrived before its announcement sits in the camera tile.
+    const camTile = document.querySelector(`.tile[data-id="${CSS.escape(this.id)}"] video`);
+    if (camTile && camTile.srcObject?.id === this.screenId) removeTile(this.id);
+    for (const stream of this.streams.values()) this.showStream(stream);
+  }
+
+  setScreen(id) {
+    const old = this.screenId;
+    this.screenId = id || null;
+    this.sharing = !!id;
+    if (old && old !== id) {
+      // The ended share may still have tracks until renegotiation; forget it
+      // so refreshTiles does not redraw it in the camera tile.
+      this.streams.delete(old);
+      removeTile(`${this.id}:screen`);
+    }
+    this.refreshTiles();
   }
 
   async updateRoute() {
@@ -723,6 +764,7 @@ class Peer {
     this.syncDone?.();
     this.pc.close();
     removeTile(this.id);
+    removeTile(`${this.id}:screen`);
   }
 }
 
@@ -753,12 +795,14 @@ async function broadcast(header, body) {
 
 function renderMembers() {
   const ul = $("members");
-  ul.replaceChildren(el("li", {}, el("span", { textContent: t("room.me", { name: myName }) }), callIcon(localStream && callKind)));
+  ul.replaceChildren(el("li", {}, el("span", { textContent: t("room.me", { name: myName }) }),
+    callIcon(localStream && callKind), screenStream ? " 🖥️" : null));
   for (const p of peers.values()) {
     const cls = p.route === "p2p" ? "ok" : p.route === "turn" ? "mid" : "relay";
     ul.append(el("li", {},
       el("span", { textContent: p.name }),
       callIcon(p.inCall),
+      p.sharing ? " 🖥️" : null,
       el("span", { class: `route ${cls}`, textContent: t(`room.route.${p.route}`) })));
   }
   const n = peers.size + 1;
@@ -897,7 +941,7 @@ async function receive(peer, bytes) {
       peer.name = String(h.name || "?").slice(0, 32);
       peer.inCall = callKindOf(h.call);
       renderMembers();
-      if (peer.stream) showTile(peer.id, peer.stream, peer.name, false);
+      peer.setScreen(h.screen ? String(h.screen) : null);
       notice(t("room.notice.present", { name: peer.name }));
       peer.hello(); // reply if we have not greeted yet
       if (h.inbox?.jwk && h.inbox.pub === roomInboxPub && !inboxOk()) {
@@ -935,6 +979,10 @@ async function receive(peer, bytes) {
     case "call":
       peer.inCall = h.on ? callKindOf(h.kind || true) : false;
       if (!h.on) removeTile(peer.id);
+      renderMembers();
+      break;
+    case "screen":
+      peer.setScreen(h.on ? String(h.id) : null);
       renderMembers();
       break;
   }
@@ -1127,7 +1175,7 @@ function callIcon(kind) {
   return kind === "audio" ? " 🎙️" : kind ? " 📹" : null;
 }
 
-function showTile(id, stream, name, muted) {
+function showTile(id, stream, name, muted, screen = false) {
   let tile = document.querySelector(`.tile[data-id="${CSS.escape(id)}"]`);
   if (!tile) {
     tile = el("div", { class: "tile" },
@@ -1140,6 +1188,7 @@ function showTile(id, stream, name, muted) {
   const v = tile.querySelector("video");
   if (v.srcObject !== stream) v.srcObject = stream;
   tile.querySelector(".label").textContent = name;
+  tile.classList.toggle("screen", screen);
   tile.querySelector(".avatar").textContent = ([...String(name).trim()][0] || "?").toUpperCase();
   // Voice-only participants show an avatar; the <video> keeps playing audio.
   const update = () => tile.classList.toggle("audio-only", stream.getVideoTracks().length === 0);
@@ -1152,9 +1201,50 @@ function showTile(id, stream, name, muted) {
   $("videos").hidden = false;
 }
 
+/** Removes whichever tile currently shows stream. */
+function removeStreamTile(stream) {
+  for (const tile of document.querySelectorAll(".tile")) {
+    if (tile.querySelector("video")?.srcObject === stream) removeTile(tile.dataset.id);
+  }
+}
+
 function removeTile(id) {
   document.querySelector(`.tile[data-id="${CSS.escape(id)}"]`)?.remove();
   if (!$("video-grid").children.length) $("videos").hidden = true;
+}
+
+/** Shares a screen, window or tab; works with or without a call. */
+async function startShare() {
+  setCallMenu(false);
+  if (screenStream || !canShare) return;
+  try {
+    screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+  } catch (e) {
+    if (e.name !== "NotAllowedError") notice(t("room.err.share", { msg: e.message })); // not when the user cancels
+    return;
+  }
+  const video = screenStream.getVideoTracks()[0];
+  if (video) {
+    video.contentHint = "detail"; // favor sharp text over frame rate
+    video.addEventListener("ended", stopShare); // the browser's own "Stop sharing" button
+  }
+  // Announce first so peers can label the stream as a screen when it arrives.
+  await broadcast({ t: "screen", on: true, id: screenStream.id });
+  showTile("self:screen", screenStream, t("room.screenOf", { name: myName }), true, true);
+  for (const p of peers.values()) p.addStream(screenStream, "screen");
+  updateMediaButtons();
+  renderMembers();
+}
+
+function stopShare() {
+  if (!screenStream) return;
+  for (const p of peers.values()) p.removeStream("screen");
+  for (const track of screenStream.getTracks()) track.stop();
+  screenStream = null;
+  removeTile("self:screen");
+  broadcast({ t: "screen", on: false });
+  updateMediaButtons();
+  renderMembers();
 }
 
 function setCallMenu(open) {
@@ -1207,6 +1297,7 @@ function hangup() {
  * room key stays on this device, so reopening the URL rejoins directly. */
 function leaveRoom() {
   hangup();
+  stopShare();
   closedForGood = true;
   ws?.close(1000, "left");
   const lang = document.documentElement.lang;
@@ -1225,6 +1316,9 @@ function updateMediaButtons() {
   $("toggle-cam").textContent = t("room.cam", { state: t(v ? (v.enabled ? "room.on" : "room.off") : "room.none") });
   $("toggle-mic").hidden = $("hangup").hidden = !localStream;
   $("toggle-cam").hidden = !v; // voice calls have no camera to toggle
+  $("toggle-share").textContent = t(screenStream ? "room.stopShare" : "room.shareScreen");
+  $("toggle-share").hidden = !canShare || (!localStream && !screenStream);
+  $("share-item").hidden = !canShare || !!screenStream;
 }
 
 // ---------- UI ----------
@@ -1270,7 +1364,7 @@ function bindUI() {
     setCallMenu($("call-menu").hidden);
   };
   for (const item of $("call-menu").querySelectorAll("[data-kind]")) {
-    item.onclick = () => startCall(item.dataset.kind);
+    item.onclick = () => (item.dataset.kind === "screen" ? startShare() : startCall(item.dataset.kind));
   }
   document.addEventListener("click", (e) => {
     if (!$("call-menu").hidden && !$("call-wrap").contains(e.target)) setCallMenu(false);
@@ -1282,6 +1376,7 @@ function bindUI() {
     }
   });
   $("hangup").onclick = hangup;
+  $("toggle-share").onclick = () => (screenStream ? stopShare() : startShare());
   $("leave").onclick = leaveRoom;
   $("toggle-mic").onclick = () => toggleTrack("audio");
   $("toggle-cam").onclick = () => toggleTrack("video");

@@ -42,6 +42,9 @@
   "room.callVoice": "语音通话",
   "room.callVideo": "视频通话",
   "room.leave": "离开",
+  "room.shareScreen": "共享屏幕",
+  "room.stopShare": "停止共享",
+  "room.screenOf": "{name} 的屏幕",
   "room.members": "参与者",
   "room.safetyCode": "安全验证码",
   "room.safetyHint": "如果所有人看到的验证码相同，说明使用的是同一把加密密钥。",
@@ -98,5 +101,6 @@
   "room.file.tooLarge": "{name} 过大（上限 {max}）",
   "room.err.joinMsgLimit": "已达到批准前可发送消息的上限",
   "room.err.msgFailed": "消息发送失败",
-  "room.err.media": "无法使用摄像头或麦克风：{msg}"
+  "room.err.media": "无法使用摄像头或麦克风：{msg}",
+  "room.err.share": "无法共享屏幕：{msg}"
 }
