@@ -38,6 +38,7 @@ let myId = "";           // signaling ID, changes on every connection
 let ws = null;
 let iceServers = [];
 let localStream = null;
+let callKind = null;     // "audio" | "video" while we are in a call
 let closedForGood = false;
 let claimed = false;     // server knows we hold the key (this connection)
 let creating = false;    // we made a new key and are registering the room
@@ -677,7 +678,7 @@ class Peer {
     this.greeted = true;
     clearTimeout(this.helloTimer);
     this.send(await seal(rk.key, {
-      t: "hello", name: myName, call: !!localStream, inbox: inboxOk() ? rk.inbox : null,
+      t: "hello", name: myName, call: localStream ? callKind : false, inbox: inboxOk() ? rk.inbox : null,
     }));
   }
 
@@ -752,12 +753,12 @@ async function broadcast(header, body) {
 
 function renderMembers() {
   const ul = $("members");
-  ul.replaceChildren(el("li", {}, el("span", { textContent: t("room.me", { name: myName }) }), localStream ? " 📹" : null));
+  ul.replaceChildren(el("li", {}, el("span", { textContent: t("room.me", { name: myName }) }), callIcon(localStream && callKind)));
   for (const p of peers.values()) {
     const cls = p.route === "p2p" ? "ok" : p.route === "turn" ? "mid" : "relay";
     ul.append(el("li", {},
       el("span", { textContent: p.name }),
-      p.inCall ? " 📹" : null,
+      callIcon(p.inCall),
       el("span", { class: `route ${cls}`, textContent: t(`room.route.${p.route}`) })));
   }
   const n = peers.size + 1;
@@ -894,7 +895,7 @@ async function receive(peer, bytes) {
   switch (h.t) {
     case "hello":
       peer.name = String(h.name || "?").slice(0, 32);
-      peer.inCall = !!h.call;
+      peer.inCall = callKindOf(h.call);
       renderMembers();
       if (peer.stream) showTile(peer.id, peer.stream, peer.name, false);
       notice(t("room.notice.present", { name: peer.name }));
@@ -932,7 +933,7 @@ async function receive(peer, bytes) {
       await onFileChunk(h, body);
       break;
     case "call":
-      peer.inCall = !!h.on;
+      peer.inCall = h.on ? callKindOf(h.kind || true) : false;
       if (!h.on) removeTile(peer.id);
       renderMembers();
       break;
@@ -1114,18 +1115,40 @@ async function sendText(text) {
   await broadcast({ t: "msg", ...rec });
 }
 
-// ---------- video call ----------
+// ---------- voice / video call ----------
+
+/** Normalizes a peer's announced call state to "audio" | "video" | false. */
+function callKindOf(v) {
+  if (!v) return false;
+  return v === "audio" ? "audio" : "video"; // older clients sent true for video
+}
+
+function callIcon(kind) {
+  return kind === "audio" ? " 🎙️" : kind ? " 📹" : null;
+}
 
 function showTile(id, stream, name, muted) {
   let tile = document.querySelector(`.tile[data-id="${CSS.escape(id)}"]`);
   if (!tile) {
-    tile = el("div", { class: "tile" }, el("video", { autoplay: true, playsInline: true, muted }), el("span", { class: "label" }));
+    tile = el("div", { class: "tile" },
+      el("video", { autoplay: true, playsInline: true, muted }),
+      el("span", { class: "avatar", "aria-hidden": "true" }),
+      el("span", { class: "label" }));
     tile.dataset.id = id;
     $("video-grid").append(tile);
   }
   const v = tile.querySelector("video");
   if (v.srcObject !== stream) v.srcObject = stream;
   tile.querySelector(".label").textContent = name;
+  tile.querySelector(".avatar").textContent = ([...String(name).trim()][0] || "?").toUpperCase();
+  // Voice-only participants show an avatar; the <video> keeps playing audio.
+  const update = () => tile.classList.toggle("audio-only", stream.getVideoTracks().length === 0);
+  update();
+  if (tile.watched !== stream) { // listen once per stream (showTile runs for every track)
+    tile.watched = stream;
+    stream.addEventListener("addtrack", update);
+    stream.addEventListener("removetrack", update);
+  }
   $("videos").hidden = false;
 }
 
@@ -1134,34 +1157,60 @@ function removeTile(id) {
   if (!$("video-grid").children.length) $("videos").hidden = true;
 }
 
-async function startCall() {
+function setCallMenu(open) {
+  $("call-menu").hidden = !open;
+  $("call").setAttribute("aria-expanded", String(open));
+  if (open) $("call-menu").querySelector("button").focus();
+}
+
+/** Starts a call; kind is "audio" (microphone only) or "video". */
+async function startCall(kind) {
+  setCallMenu(false);
+  if (localStream) return;
   try {
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-  } catch {
-    try {
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (e) {
+    localStream = await navigator.mediaDevices.getUserMedia(
+      kind === "video" ? { audio: true, video: true } : { audio: true });
+  } catch (e) {
+    if (kind !== "video") {
       notice(t("room.err.media", { msg: e.message }));
       return;
     }
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: true }); // no camera: fall back to voice
+    } catch (e2) {
+      notice(t("room.err.media", { msg: e2.message }));
+      return;
+    }
   }
+  callKind = localStream.getVideoTracks().length ? "video" : "audio";
   showTile("self", localStream, t("room.me", { name: myName }), true);
   for (const p of peers.values()) p.addStream(localStream);
-  $("call").hidden = true;
+  $("call-wrap").hidden = true;
   updateMediaButtons();
   renderMembers();
-  broadcast({ t: "call", on: true });
+  broadcast({ t: "call", on: true, kind: callKind });
 }
 
 function hangup() {
   if (!localStream) return;
   for (const p of peers.values()) p.removeStream();
-  for (const t of localStream.getTracks()) t.stop();
+  for (const track of localStream.getTracks()) track.stop();
   localStream = null;
+  callKind = null;
   removeTile("self");
-  $("call").hidden = false;
+  $("call-wrap").hidden = false;
   renderMembers();
   broadcast({ t: "call", on: false });
+}
+
+/** Ends the call, disconnects (without reconnecting) and returns home. The
+ * room key stays on this device, so reopening the URL rejoins directly. */
+function leaveRoom() {
+  hangup();
+  closedForGood = true;
+  ws?.close(1000, "left");
+  const lang = document.documentElement.lang;
+  location.href = lang === "ja" ? "/" : `/${lang}`;
 }
 
 function toggleTrack(kind) {
@@ -1174,7 +1223,8 @@ function updateMediaButtons() {
   const a = localStream?.getAudioTracks()[0], v = localStream?.getVideoTracks()[0];
   $("toggle-mic").textContent = t("room.mic", { state: t(a?.enabled ? "room.on" : "room.off") });
   $("toggle-cam").textContent = t("room.cam", { state: t(v ? (v.enabled ? "room.on" : "room.off") : "room.none") });
-  $("toggle-mic").hidden = $("toggle-cam").hidden = $("hangup").hidden = !localStream;
+  $("toggle-mic").hidden = $("hangup").hidden = !localStream;
+  $("toggle-cam").hidden = !v; // voice calls have no camera to toggle
 }
 
 // ---------- UI ----------
@@ -1215,8 +1265,24 @@ function bindUI() {
     $("copy-url").textContent = t("room.copied");
     setTimeout(() => ($("copy-url").textContent = t("room.copyUrl")), 1500);
   };
-  $("call").onclick = startCall;
+  $("call").onclick = (e) => {
+    e.stopPropagation();
+    setCallMenu($("call-menu").hidden);
+  };
+  for (const item of $("call-menu").querySelectorAll("[data-kind]")) {
+    item.onclick = () => startCall(item.dataset.kind);
+  }
+  document.addEventListener("click", (e) => {
+    if (!$("call-menu").hidden && !$("call-wrap").contains(e.target)) setCallMenu(false);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !$("call-menu").hidden) {
+      setCallMenu(false);
+      $("call").focus();
+    }
+  });
   $("hangup").onclick = hangup;
+  $("leave").onclick = leaveRoom;
   $("toggle-mic").onclick = () => toggleTrack("audio");
   $("toggle-cam").onclick = () => toggleTrack("video");
 

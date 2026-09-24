@@ -19,7 +19,20 @@
     </div>
     <div class="actions">
       <button id="copy-url" data-i18n="room.copyUrl" data-i18n-title="room.copyUrlTitle"></button>
-      <button id="call" class="primary" data-i18n="room.call"></button>
+      <button id="leave" class="danger" data-i18n="room.leave"></button>
+      <div id="call-wrap" class="call-wrap">
+        <button id="call" class="primary" aria-haspopup="menu" aria-expanded="false" aria-controls="call-menu" data-i18n="room.call"></button>
+        <div id="call-menu" class="call-menu" role="menu" hidden>
+          <button type="button" role="menuitem" data-kind="audio">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5V21"/></svg>
+            <span data-i18n="room.callVoice"></span>
+          </button>
+          <button type="button" role="menuitem" data-kind="video">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="13" height="12" rx="3"/><path d="M15.5 10.5l5.5-3v9l-5.5-3"/></svg>
+            <span data-i18n="room.callVideo"></span>
+          </button>
+        </div>
+      </div>
     </div>
   </header>
 
