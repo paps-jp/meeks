@@ -4,7 +4,7 @@
 export const LANGS = [
   ["ja", "日本語"], ["en", "English"], ["ko", "한국어"], ["zh", "中文"], ["ru", "Русский"],
   ["ar", "العربية"], ["hi", "हिन्दी"], ["es", "Español"], ["bn", "বাংলা"], ["pt", "Português"],
-  ["id", "Indonesia"],
+  ["id", "Indonesia"], ["pl", "Polski"], ["uk", "Українська"],
 ];
 export const LANG_CODES = LANGS.map(([code]) => code);
 const RTL = new Set(["ar"]);

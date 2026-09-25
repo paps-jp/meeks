@@ -31,6 +31,8 @@ var languages = []language{
 	{"bn", "বাংলা", "bn_BD", false},
 	{"pt", "Português", "pt_BR", false},
 	{"id", "Indonesia", "id_ID", false},
+	{"pl", "Polski", "pl_PL", false},
+	{"uk", "Українська", "uk_UA", false},
 }
 
 func findLanguage(code string) (language, bool) {
