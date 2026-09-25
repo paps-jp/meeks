@@ -17,14 +17,14 @@ import (
 	"meeks/internal/signaling"
 )
 
-// site serves the web pages: the landing page in every supported language
-// (server-rendered, with SEO metadata for the public URL), robots.txt /
-// sitemap.xml, and room pages at /{room}.
+// site serves the web pages: the landing and safety pages in every supported
+// language (server-rendered, with SEO metadata for the public URL),
+// robots.txt / sitemap.xml, and room pages at /{room}.
 type site struct {
 	static     fs.FS
 	siteURL    string // e.g. https://meeks.example.com; derived from the request if empty
 	trustProxy bool
-	index      *template.Template
+	pages      *template.Template
 	tr         translations
 }
 
@@ -33,7 +33,7 @@ type site struct {
 var hostPattern = regexp.MustCompile(`^[A-Za-z0-9.\-]+(:[0-9]{1,5})?$|^\[[0-9A-Fa-f:.]+\](:[0-9]{1,5})?$`)
 
 func newSite(static, templates fs.FS, siteURL string, trustProxy bool) (*site, error) {
-	index, err := template.ParseFS(templates, "templates/index.html")
+	pages, err := template.ParseFS(templates, "templates/*.html")
 	if err != nil {
 		return nil, err
 	}
@@ -44,10 +44,11 @@ func newSite(static, templates fs.FS, siteURL string, trustProxy bool) (*site, e
 	for _, l := range languages {
 		signaling.ReserveRoomIDs(l.Code)
 	}
+	signaling.ReserveRoomIDs(pageSafety)
 	mime.AddExtensionType(".webmanifest", "application/manifest+json")
 	return &site{
 		static: static, siteURL: strings.TrimRight(siteURL, "/"), trustProxy: trustProxy,
-		index: index, tr: tr,
+		pages: pages, tr: tr,
 	}, nil
 }
 
@@ -57,7 +58,13 @@ func (s *site) register(mux *http.ServeMux) {
 		log.Printf("static etags: %v", err)
 	}
 	mux.Handle("GET /static/", http.StripPrefix("/static/", revalidate(etags, http.FileServerFS(s.static))))
-	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) { s.serveIndex(w, r, defaultLang) })
+	for _, l := range languages {
+		code := l.Code
+		mux.HandleFunc("GET "+pagePath(code, pageSafety), func(w http.ResponseWriter, r *http.Request) {
+			s.servePage(w, r, code, pageSafety)
+		})
+	}
+	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) { s.servePage(w, r, defaultLang, pageHome) })
 	mux.HandleFunc("GET /robots.txt", s.serveRobots)
 	mux.HandleFunc("GET /sitemap.xml", s.serveSitemap)
 	mux.HandleFunc("GET /{room}", s.serveRoomOrLang)
@@ -86,6 +93,24 @@ func (s *site) origin(r *http.Request) string {
 	return scheme + "://" + host
 }
 
+// Pages rendered from web/templates.
+const (
+	pageHome   = "home"
+	pageSafety = "safety"
+)
+
+// pagePath is the path of a page in a language: /, /en, /safety, /en/safety.
+func pagePath(code, page string) string {
+	p := langPath(code)
+	if page != pageSafety {
+		return p
+	}
+	if p == "/" {
+		return "/" + pageSafety
+	}
+	return p + "/" + pageSafety
+}
+
 // langLink is one entry of the language switcher / hreflang list.
 type langLink struct {
 	language
@@ -94,58 +119,76 @@ type langLink struct {
 	Current bool
 }
 
-// indexPage is the data for templates/index.html.
-type indexPage struct {
-	Lang       language
-	Dir        string
-	SiteURL    string
-	PageURL    string
-	DefaultURL string
-	Langs      []langLink
-	LDJSON     template.JS
-	tr         translations
+// sitePage is the data for the page templates.
+type sitePage struct {
+	Lang          language
+	Dir           string
+	Page          string
+	SiteURL       string
+	PageURL       string
+	DefaultURL    string
+	HomePath      string
+	SafetyPath    string
+	Title         string
+	Description   string
+	OGDescription string
+	OGImage       string
+	Langs         []langLink
+	LDJSON        template.JS
+	tr            translations
 }
 
 // T returns the translation of key in the page language.
-func (p indexPage) T(key string) string { return p.tr.text(p.Lang.Code, key) }
+func (p sitePage) T(key string) string { return p.tr.text(p.Lang.Code, key) }
 
-func (s *site) serveIndex(w http.ResponseWriter, r *http.Request, code string) {
+func (s *site) servePage(w http.ResponseWriter, r *http.Request, code, page string) {
 	lang, _ := findLanguage(code)
 	origin := s.origin(r)
-	page := indexPage{
-		Lang: lang, Dir: "ltr", SiteURL: origin,
-		PageURL: origin + langPath(code), DefaultURL: origin + "/", tr: s.tr,
+	p := sitePage{
+		Lang: lang, Dir: "ltr", Page: page, SiteURL: origin,
+		PageURL: origin + pagePath(code, page), DefaultURL: origin + pagePath(defaultLang, page),
+		HomePath: pagePath(code, pageHome), SafetyPath: pagePath(code, pageSafety),
+		OGImage: origin + "/static/img/og-" + code + ".png", tr: s.tr,
 	}
 	if lang.RTL {
-		page.Dir = "rtl"
+		p.Dir = "rtl"
 	}
 	for _, l := range languages {
-		page.Langs = append(page.Langs, langLink{
-			language: l, Path: langPath(l.Code), URL: origin + langPath(l.Code), Current: l.Code == code,
+		p.Langs = append(p.Langs, langLink{
+			language: l, Path: pagePath(l.Code, page), URL: origin + pagePath(l.Code, page), Current: l.Code == code,
 		})
 	}
-	ld, err := json.Marshal(map[string]any{
-		"@context":            "https://schema.org",
-		"@type":               "WebApplication",
-		"name":                "Meeks",
-		"url":                 page.PageURL,
-		"description":         page.T("meta.ldDescription"),
-		"applicationCategory": "CommunicationApplication",
-		"operatingSystem":     "Web",
-		"inLanguage":          code,
-		"image":               origin + "/static/img/og.png",
-		"offers":              map[string]string{"@type": "Offer", "price": "0", "priceCurrency": "JPY"},
-		"publisher":           map[string]string{"@type": "Organization", "name": "PAPS"},
-	})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+
+	tmpl := "index.html"
+	if page == pageSafety {
+		tmpl = "safety.html"
+		p.Title, p.Description = p.T("safety.meta.title"), p.T("safety.meta.description")
+		p.OGDescription = p.Description
+	} else {
+		p.Title, p.Description, p.OGDescription = p.T("meta.title"), p.T("meta.description"), p.T("meta.ogDescription")
+		ld, err := json.Marshal(map[string]any{
+			"@context":            "https://schema.org",
+			"@type":               "WebApplication",
+			"name":                "Meeks",
+			"url":                 p.PageURL,
+			"description":         p.T("meta.ldDescription"),
+			"applicationCategory": "CommunicationApplication",
+			"operatingSystem":     "Web",
+			"inLanguage":          code,
+			"image":               p.OGImage,
+			"offers":              map[string]string{"@type": "Offer", "price": "0", "priceCurrency": "JPY"},
+			"publisher":           map[string]string{"@type": "Organization", "name": "PAPS", "url": "https://paps.jp"},
+		})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		p.LDJSON = template.JS(ld) // json.Marshal escapes <, > and & so this cannot break out of <script>
 	}
-	page.LDJSON = template.JS(ld) // json.Marshal escapes <, > and & so this cannot break out of <script>
 
 	var buf bytes.Buffer
-	if err := s.index.Execute(&buf, page); err != nil {
-		log.Printf("index template: %v", err)
+	if err := s.pages.ExecuteTemplate(&buf, tmpl, p); err != nil {
+		log.Printf("%s template: %v", tmpl, err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -163,7 +206,7 @@ func (s *site) serveRoomOrLang(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/", http.StatusMovedPermanently)
 			return
 		}
-		s.serveIndex(w, r, name)
+		s.servePage(w, r, name, pageHome)
 		return
 	}
 	if !signaling.ValidRoomID(name) {
@@ -188,13 +231,15 @@ func (s *site) serveSitemap(w http.ResponseWriter, r *http.Request) {
 	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
 `)
-	for _, l := range languages {
-		fmt.Fprintf(&b, "  <url>\n    <loc>%s%s</loc>\n", origin, langPath(l.Code))
-		for _, alt := range languages {
-			fmt.Fprintf(&b, "    <xhtml:link rel=\"alternate\" hreflang=\"%s\" href=\"%s%s\"/>\n", alt.Code, origin, langPath(alt.Code))
+	for _, page := range []string{pageHome, pageSafety} {
+		for _, l := range languages {
+			fmt.Fprintf(&b, "  <url>\n    <loc>%s%s</loc>\n", origin, pagePath(l.Code, page))
+			for _, alt := range languages {
+				fmt.Fprintf(&b, "    <xhtml:link rel=\"alternate\" hreflang=\"%s\" href=\"%s%s\"/>\n", alt.Code, origin, pagePath(alt.Code, page))
+			}
+			fmt.Fprintf(&b, "    <xhtml:link rel=\"alternate\" hreflang=\"x-default\" href=\"%s%s\"/>\n", origin, pagePath(defaultLang, page))
+			b.WriteString("    <changefreq>monthly</changefreq>\n  </url>\n")
 		}
-		fmt.Fprintf(&b, "    <xhtml:link rel=\"alternate\" hreflang=\"x-default\" href=\"%s/\"/>\n", origin)
-		b.WriteString("    <changefreq>monthly</changefreq>\n  </url>\n")
 	}
 	b.WriteString("</urlset>\n")
 	w.Header().Set("Content-Type", "application/xml; charset=utf-8")

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="{{.Lang.Code}}" dir="{{.Dir}}">
+<head>
+{{- template "head" .}}
+</head>
+<body class="home">
+  <main>
+    <section class="home-card safety-hero">
+      <a href="{{.HomePath}}" class="logo">Meeks</a>
+      <h1 class="safety-title">{{.T "safety.title"}}</h1>
+      <p class="tagline">{{.T "safety.intro"}}</p>
+    </section>
+
+    <section class="story safety">
+      <h2>{{.T "safety.s1.title"}}</h2>
+      <p>{{.T "safety.s1.body"}}</p>
+      <h2>{{.T "safety.s2.title"}}</h2>
+      <p>{{.T "safety.s2.body"}}</p>
+      <h2>{{.T "safety.s3.title"}}</h2>
+      <p>{{.T "safety.s3.body"}}</p>
+      <h2>{{.T "safety.s4.title"}}</h2>
+      <p>{{.T "safety.s4.body"}}</p>
+      <h2>{{.T "safety.s5.title"}}</h2>
+      <p>{{.T "safety.s5.body"}}</p>
+      <h2>{{.T "safety.s6.title"}}</h2>
+      <p>{{.T "safety.s6.body"}}</p>
+      <h2>{{.T "safety.s7.title"}}</h2>
+      <p>{{.T "safety.s7.body"}}</p>
+    </section>
+
+    <section class="story safety safety-limits">
+      <h2>{{.T "safety.limits.title"}}</h2>
+      <ul>
+        <li>{{.T "safety.limits.1"}}</li>
+        <li>{{.T "safety.limits.2"}}</li>
+        <li>{{.T "safety.limits.3"}}</li>
+        <li>{{.T "safety.limits.4"}}</li>
+      </ul>
+    </section>
+
+    <section class="story safety">
+      <h2>{{.T "safety.open.title"}}</h2>
+      <p>{{.T "safety.open.body"}}</p>
+      <p><a href="https://github.com/paps-jp/meeks" rel="noopener">{{.T "safety.open.link"}}</a></p>
+    </section>
+  </main>
+{{template "footer" .}}
+</body>
+</html>

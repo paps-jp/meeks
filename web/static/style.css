@@ -173,7 +173,21 @@ select {
   border: 1.5px solid var(--border); border-radius: 999px; padding: 6px 12px; cursor: pointer;
 }
 .site-footer { width: 100%; text-align: center; padding: 32px 16px 24px; color: var(--muted); letter-spacing: 0.05em; }
-.sidebar-footer { margin-top: auto; padding-top: 12px; text-align: center; color: var(--muted); letter-spacing: 0.05em; }
+.sidebar-footer {
+  margin-top: auto; padding-top: 12px; text-align: center; color: var(--muted); letter-spacing: 0.05em;
+  display: flex; flex-direction: column; gap: 4px; font-size: 0.9em;
+}
+.sidebar-footer a, .site-footer a { color: inherit; text-decoration: none; }
+.sidebar-footer a:hover, .site-footer a:hover { color: var(--brand); text-decoration: underline; }
+.footer-links { margin: 0 0 8px; }
+.footer-links a { color: var(--brand); font-weight: 600; }
+.safety-hero { text-align: start; }
+.safety-hero .logo { font-size: 1.6em; }
+.safety-title { font-size: 1.8em; margin: 10px 0 4px; color: var(--brand-strong); }
+.safety h2 { text-align: start; font-size: 1.1em; margin: 22px 0 6px; }
+.safety h2:first-child { margin-top: 0; }
+.safety-limits { background: var(--pink-soft); }
+.safety-limits ul { margin: 0; padding-inline-start: 1.3em; display: flex; flex-direction: column; gap: 8px; line-height: 1.8; }
 
 /* ---------- room ---------- */
 body.room { display: flex; flex-direction: column; height: 100dvh; }

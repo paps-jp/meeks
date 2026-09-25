@@ -120,7 +120,47 @@ func TestLocalizedLanding(t *testing.T) {
 		t.Error("language codes must not be usable as room IDs")
 	}
 	sm := get(mux, "/sitemap.xml", "x").Body.String()
-	if strings.Count(sm, "<loc>") != len(languages) || !strings.Contains(sm, `hreflang="x-default"`) {
+	if strings.Count(sm, "<loc>") != 2*len(languages) || !strings.Contains(sm, `<loc>http://x/en/safety</loc>`) {
 		t.Errorf("sitemap = %s", sm)
+	}
+}
+
+func TestSafetyPage(t *testing.T) {
+	mux := newTestMux(t)
+	ja := get(mux, "/safety", "x")
+	body := ja.Body.String()
+	for _, want := range []string{
+		`<html lang="ja" dir="ltr">`,
+		`<link rel="canonical" href="http://x/safety">`,
+		`<link rel="alternate" hreflang="en" href="http://x/en/safety">`,
+		`<link rel="alternate" hreflang="x-default" href="http://x/safety">`,
+		`<meta property="og:image" content="http://x/static/img/og-ja.png">`,
+		"安全性について",
+		"エンドツーエンド暗号化",
+		`href="https://github.com/paps-jp/meeks"`,
+		`<a href="https://paps.jp" rel="noopener">(C) PAPS</a>`,
+		`<a href="/">`, // back to the top page
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("/safety missing %q", want)
+		}
+	}
+	if ja.Code != 200 || strings.Contains(body, "{{") {
+		t.Fatalf("/safety: code %d", ja.Code)
+	}
+
+	en := get(mux, "/en/safety", "x").Body.String()
+	if !strings.Contains(en, "What Meeks cannot do") || !strings.Contains(en, `<a href="/en">`) {
+		t.Error("/en/safety not translated or missing link home")
+	}
+	if !strings.Contains(get(mux, "/ar/safety", "x").Body.String(), `dir="rtl"`) {
+		t.Error("/ar/safety not right-to-left")
+	}
+	// The landing page links to the safety page in its language.
+	if !strings.Contains(get(mux, "/ko", "x").Body.String(), `<a href="/ko/safety">`) {
+		t.Error("/ko does not link to /ko/safety")
+	}
+	if signaling.ValidRoomID("safety") {
+		t.Error("safety must not be usable as a room ID")
 	}
 }

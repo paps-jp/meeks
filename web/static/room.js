@@ -1436,6 +1436,7 @@ async function main() {
   await loadLang(lang);
   applyI18n();
   document.querySelector(".topbar .logo").href = lang === "ja" ? "/" : `/${lang}`;
+  $("safety-link").href = lang === "ja" ? "/safety" : `/${lang}/safety`;
   const select = $("lang-select");
   for (const [code, name] of LANGS) select.append(el("option", { value: code, textContent: name }));
   select.value = lang;
