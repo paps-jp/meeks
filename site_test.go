@@ -43,7 +43,7 @@ func TestSite(t *testing.T) {
 		`<link rel="canonical" href="http://meeks.example.com/">`,
 		`<link rel="alternate" hreflang="en" href="http://meeks.example.com/en">`,
 		`<link rel="alternate" hreflang="x-default" href="http://meeks.example.com/">`,
-		`新しいルームを作成`,
+		`新しいトークを作成`,
 		`"inLanguage":"ja"`,
 	} {
 		if !strings.Contains(idx, want) {
